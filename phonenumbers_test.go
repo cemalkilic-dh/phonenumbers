@@ -978,7 +978,7 @@ func TestGetMetadata(t *testing.T) {
 			cc:         54,
 			i18nPref:   "00",
 			natPref:    "0",
-			numFmtSize: 11,
+			numFmtSize: 12,
 		},
 	}
 	for i, test := range tests {
