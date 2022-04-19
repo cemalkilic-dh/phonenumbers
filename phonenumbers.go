@@ -25,9 +25,6 @@ const (
 	// This prevents malicious input from overflowing the regular-expression
 	// engine.
 	MAX_INPUT_STRING_LENGTH = 250
-	// MAX_REGEX_CACHE_CAPACITY limits the number of cached regular expressions,
-	// to prevent it from growing indefinitely
-	MAX_REGEX_CACHE_CAPACITY = 50
 
 	// UNKNOWN_REGION is the region-code for the unknown region.
 	UNKNOWN_REGION = "ZZ"
@@ -398,6 +395,10 @@ var (
 	FIRST_GROUP_ONLY_PREFIX_PATTERN = regexp.MustCompile(`\(?\$1\)?`)
 
 	REGION_CODE_FOR_NON_GEO_ENTITY = "001"
+
+	// MAX_REGEX_CACHE_CAPACITY limits the number of cached regular expressions,
+	// to prevent it from growing indefinitely
+	MAX_REGEX_CACHE_CAPACITY = 100
 )
 
 // INTERNATIONAL and NATIONAL formats are consistent with the definition
@@ -598,6 +599,18 @@ var (
 
 var ErrEmptyMetadata = errors.New("empty metadata")
 
+// SetRegexCacheCapacity sets the regex cache capacity
+// to the given positive number
+func SetRegexCacheCapacity(cap int) err {
+	if cap <= 0 {
+		return ErrInvalidCapacity
+	}
+
+	regCacheMutex.Lock()
+	MAX_REGEX_CACHE_CAPACITY = cap
+	regCacheMutex.Unlock()
+}
+
 func readFromRegexCache(key string) (*regexp.Regexp, bool) {
 	regCacheMutex.RLock()
 	v, ok := regexCache[key]
@@ -608,7 +621,7 @@ func readFromRegexCache(key string) (*regexp.Regexp, bool) {
 func writeToRegexCache(key string, value *regexp.Regexp) {
 	regCacheMutex.Lock()
 	defer regCacheMutex.Unlock()
-	if len(regexCache) == MAX_REGEX_CACHE_CAPACITY {
+	if len(regexCache) >= MAX_REGEX_CACHE_CAPACITY {
 		return
 	}
 	regexCache[key] = value
@@ -2845,6 +2858,7 @@ var (
 	ErrInvalidCountryCode = errors.New("invalid country code")
 	ErrNotANumber         = errors.New("the phone number supplied is not a number")
 	ErrTooShortNSN        = errors.New("the string supplied is too short to be a phone number")
+	ErrInvalidCapacity    = errors.New("capacity should be positive number")
 )
 
 // Parses a string and fills up the phoneNumber. This method is the same
