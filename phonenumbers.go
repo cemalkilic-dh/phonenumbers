@@ -609,6 +609,7 @@ func SetRegexCacheCapacity(cap int) err {
 	regCacheMutex.Lock()
 	MAX_REGEX_CACHE_CAPACITY = cap
 	regCacheMutex.Unlock()
+	return nil
 }
 
 func readFromRegexCache(key string) (*regexp.Regexp, bool) {
