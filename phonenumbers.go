@@ -25,6 +25,9 @@ const (
 	// This prevents malicious input from overflowing the regular-expression
 	// engine.
 	MAX_INPUT_STRING_LENGTH = 250
+	// MAX_REGEX_CACHE_CAPACITY limits the number of cached regular expressions,
+	// to prevent it from growing indefinitely
+	MAX_REGEX_CACHE_CAPACITY = 50
 
 	// UNKNOWN_REGION is the region-code for the unknown region.
 	UNKNOWN_REGION = "ZZ"
@@ -604,8 +607,11 @@ func readFromRegexCache(key string) (*regexp.Regexp, bool) {
 
 func writeToRegexCache(key string, value *regexp.Regexp) {
 	regCacheMutex.Lock()
+	defer regCacheMutex.Unlock()
+	if len(regexCache) == MAX_REGEX_CACHE_CAPACITY {
+		return
+	}
 	regexCache[key] = value
-	regCacheMutex.Unlock()
 }
 
 func regexFor(pattern string) *regexp.Regexp {
