@@ -9,6 +9,52 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+func TestRegexCacheRead(t *testing.T) {
+	pattern1 := "TestRegexCacheRead"
+	if _, found1 := readFromRegexCache(pattern1); found1 {
+		t.Errorf("pattern |%v| is in the cache", pattern1)
+	}
+	regex1 := regexp.MustCompile(pattern1)
+	writeToRegexCache(pattern1, regex1)
+	if cachedRegex1 := regexFor(pattern1); cachedRegex1 != regex1 {
+		t.Error("expected the same instance, but got a different one")
+	}
+	cachedRegex1, found1 := readFromRegexCache(pattern1)
+	if !found1 {
+		t.Errorf("pattern |%v| is not in the cache", pattern1)
+	}
+	if cachedRegex1 != regex1 {
+		t.Error("expected the same instance, but got a different one")
+	}
+	pattern2 := pattern1 + "."
+	if _, found2 := readFromRegexCache(pattern2); found2 {
+		t.Errorf("pattern |%v| is in the cache", pattern2)
+	}
+}
+
+func TestRegexCacheStrict(t *testing.T) {
+	const expectedResult = "(41) 3020-3445"
+	phoneToTest := &PhoneNumber{
+		CountryCode:    proto.Int32(55),
+		NationalNumber: proto.Uint64(4130203445),
+	}
+	firstRunResult := Format(phoneToTest, NATIONAL)
+	if expectedResult != firstRunResult {
+		t.Errorf("phone number formatting not as expected")
+	}
+	// This adds value to the regex cache that would break the following lookup if the regex-s
+	// in cache were not strict.
+	Format(&PhoneNumber{
+		CountryCode:    proto.Int32(973),
+		NationalNumber: proto.Uint64(17112724),
+	}, NATIONAL)
+	secondRunResult := Format(phoneToTest, NATIONAL)
+
+	if expectedResult != secondRunResult {
+		t.Errorf("phone number formatting not as expected")
+	}
+}
+
 func TestParse(t *testing.T) {
 	var tests = []struct {
 		input       string
@@ -1591,6 +1637,16 @@ func TestMergeLengths(t *testing.T) {
 }
 
 func TestRegexCacheWrite(t *testing.T) {
+	// Since the same regex cache is used for all tests
+	// (they are running concurrently and accessing the same data)
+	// here we are clearing the cache initially to remove all the data from other tests
+	ClearRegexCache()
+
+	err := SetRegexCacheCapacity(1)
+	if err != nil {
+		t.Error("regex cache capacity couldn't be set")
+	}
+
 	pattern1 := "TestRegexCacheWrite"
 	if _, found1 := readFromRegexCache(pattern1); found1 {
 		t.Errorf("pattern |%v| is in the cache", pattern1)
@@ -1607,51 +1663,41 @@ func TestRegexCacheWrite(t *testing.T) {
 	if _, found2 := readFromRegexCache(pattern2); found2 {
 		t.Errorf("pattern |%v| is in the cache", pattern2)
 	}
-}
 
-func TestRegexCacheRead(t *testing.T) {
-	pattern1 := "TestRegexCacheRead"
-	if _, found1 := readFromRegexCache(pattern1); found1 {
-		t.Errorf("pattern |%v| is in the cache", pattern1)
-	}
-	regex1 := regexp.MustCompile(pattern1)
-	writeToRegexCache(pattern1, regex1)
-	if cachedRegex1 := regexFor(pattern1); cachedRegex1 != regex1 {
-		t.Error("expected the same instance, but got a different one")
-	}
-	cachedRegex1, found1 := readFromRegexCache(pattern1)
-	if !found1 {
-		t.Errorf("pattern |%v| is not in the cache", pattern1)
-	}
-	if cachedRegex1 != regex1 {
-		t.Error("expected the same instance, but got a different one")
-	}
-	pattern2 := pattern1 + "."
+	_ = regexFor(pattern2)
 	if _, found2 := readFromRegexCache(pattern2); found2 {
-		t.Errorf("pattern |%v| is in the cache", pattern2)
+		t.Errorf("pattern |%v| is in the cache, violating the cache capacity", pattern2)
 	}
 }
 
-func TestRegexCacheStrict(t *testing.T) {
-	const expectedResult = "(41) 3020-3445"
-	phoneToTest := &PhoneNumber{
-		CountryCode:    proto.Int32(55),
-		NationalNumber: proto.Uint64(4130203445),
+func TestSetRegexCacheCapacity(t *testing.T) {
+	var tests = []struct {
+		capacity int
+		err      error
+	}{
+		{
+			1,
+			nil,
+		},
+		{
+			42,
+			nil,
+		},
+		{
+			0,
+			ErrInvalidCapacity,
+		},
+		{
+			-1,
+			ErrInvalidCapacity,
+		},
 	}
-	firstRunResult := Format(phoneToTest, NATIONAL)
-	if expectedResult != firstRunResult {
-		t.Errorf("phone number formatting not as expected")
-	}
-	// This adds value to the regex cache that would break the following lookup if the regex-s
-	// in cache were not strict.
-	Format(&PhoneNumber{
-		CountryCode:    proto.Int32(973),
-		NationalNumber: proto.Uint64(17112724),
-	}, NATIONAL)
-	secondRunResult := Format(phoneToTest, NATIONAL)
 
-	if expectedResult != secondRunResult {
-		t.Errorf("phone number formatting not as expected")
+	for i, tc := range tests {
+		err := SetRegexCacheCapacity(tc.capacity)
+		if err != tc.err {
+			t.Errorf("[test %d:err] failed: %v != %v\n", i, err, tc.err)
+		}
 	}
 }
 

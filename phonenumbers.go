@@ -601,7 +601,7 @@ var ErrEmptyMetadata = errors.New("empty metadata")
 
 // SetRegexCacheCapacity sets the regex cache capacity
 // to the given positive number
-func SetRegexCacheCapacity(cap int) err {
+func SetRegexCacheCapacity(cap int) error {
 	if cap <= 0 {
 		return ErrInvalidCapacity
 	}
@@ -610,6 +610,13 @@ func SetRegexCacheCapacity(cap int) err {
 	MAX_REGEX_CACHE_CAPACITY = cap
 	regCacheMutex.Unlock()
 	return nil
+}
+
+// ClearRegexCache Clears the regex cache
+func ClearRegexCache() {
+	regCacheMutex.Lock()
+	regexCache = make(map[string]*regexp.Regexp)
+	regCacheMutex.Unlock()
 }
 
 func readFromRegexCache(key string) (*regexp.Regexp, bool) {
