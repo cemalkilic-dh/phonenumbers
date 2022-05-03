@@ -398,7 +398,7 @@ var (
 
 	// MAX_REGEX_CACHE_CAPACITY limits the number of cached regular expressions,
 	// to prevent it from growing indefinitely
-	MAX_REGEX_CACHE_CAPACITY = 100
+	MAX_REGEX_CACHE_CAPACITY = 500
 )
 
 // INTERNATIONAL and NATIONAL formats are consistent with the definition
